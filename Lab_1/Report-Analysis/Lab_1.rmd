@@ -1,0 +1,206 @@
+## Set working directory
+current_dir <- getwd()
+setwd(paste0(current_dir, "/Downloads/summer_23_central-master 3/Labs/Lab_1/data/raw"))
+
+## Read the challenger data
+
+df <- read.csv("challenger.csv")
+
+### 2.2
+
+## Exploratory Data Analysis
+
+plot(df$Temp, df$O.ring, pch = 16, xlab = "Temperature", ylab = "O.ring")
+plot(df$Pressure, df$O.ring, pch = 16, xlab = "Pressure", ylab = "O.ring")
+
+hist(df$Temp, xlab = "Temperature", main = "Histogram of Temperature")
+hist(df$Pressure, xlab = "Pressure", main = "Histogram of Pressure")
+
+boxplot(df$Temp ~ df$O.ring, xlab = "O.ring", ylab = "Temperature",
+        main = "Box plot of Temperature by O.ring")
+boxplot(df$Pressure ~ df$O.ring, xlab = "O.ring", ylab = "Pressure",
+        main = "Box plot of Pressure by O.ring")
+
+heatmap(cor(df[, c("O.ring", "Temp", "Pressure")]), 
+        col = colorRampPalette(c("blue", "white", "red"))(100),
+        main = "Heatmap of Correlation Matrix")
+
+### 3.1
+
+## Fit a GLM model similar to paper
+
+mod1 <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + Pressure, data = df, family = binomial())
+mod2 <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, data = df, family = binomial())
+null_model <- glm(cbind(O.ring, 6 - O.ring) ~ 1, data = df, family = binomial)
+
+coef1 <- coef(mod1)
+se1 <- sqrt(diag(vcov(mod1)))
+
+coef2 <- coef(mod2)
+se2 <- sqrt(diag(vcov(mod2)))
+
+G2_1 <- 2 * (logLik(mod1) - logLik(null_model))
+G2_2 <- 2 * (logLik(mod2) - logLik(null_model))
+
+summary(mod1)
+summary(mod2)
+
+## LRT to check whether or not Pressure (and Temp) are worth keeping in the model
+
+library(lmtest)
+
+mod_temp <- glm(cbind(O.ring, 6 - O.ring) ~ Pressure, data = df, family = binomial())
+mod_pressure <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, data = df, family = binomial())
+
+# Perform likelihood ratio tests
+lr_temp <- lrtest(mod_temp, mod1)
+lr_pressure <- lrtest(mod_pressure, mod1)
+
+# Print the results
+cat("Likelihood ratio test for Temp:\n")
+print(lr_temp)
+cat("\n")
+
+cat("Likelihood ratio test for Pressure:\n")
+print(lr_pressure)
+cat("\n")
+
+### 3.2
+
+## Move ahead with the temperature model
+
+summary(mod2)
+
+## create a model with a quadratic Temp variable
+
+# Fit the logistic regression model with the quadratic term
+mod3 <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + I(Temp^2), data = df, family = binomial())
+
+# Summary of the model
+summary(mod3)
+
+# Perform likelihood ratio test
+lr_test <- lrtest(mod2, mod3)
+
+# Print the results
+print(lr_test)
+
+# Create a new data frame with the range of temperatures
+new_data <- data.frame(Temp = seq(from = 31, to = 81, by = 0.1))
+
+# Predict probabilities (on the logit scale)
+new_data$fit <- predict(mod2, newdata = new_data, type = "link", se.fit = TRUE)
+
+# Convert predictions back to the probability scale
+new_data$pi <- plogis(new_data$fit$fit)
+
+# Calculate 95% Wald confidence intervals (on the probability scale)
+new_data$pi_low <- plogis(new_data$fit$fit - 1.96 * new_data$fit$se.fit)
+new_data$pi_high <- plogis(new_data$fit$fit + 1.96 * new_data$fit$se.fit)
+
+# Plot predicted probabilities vs. temperature
+plot(new_data$Temp, new_data$pi, type = "l", ylim = c(0, 1),
+     xlab = "Temperature", ylab = "Predicted probability of O-ring failure",
+     main = "Predicted Probabilities with 95% CI")
+lines(new_data$Temp, new_data$pi_low, col = "blue", lty = "dashed")
+lines(new_data$Temp, new_data$pi_high, col = "blue", lty = "dashed")
+
+# Calculate expected number of failures (since there are 6 O-rings)
+new_data$expected_failures <- 6 * new_data$pi
+
+# Plot expected number of failures vs. temperature
+plot(new_data$Temp, new_data$expected_failures, type = "l", ylim = c(0, 6),
+     xlab = "Temperature", ylab = "Expected number of O-ring failures",
+     main = "Expected Number of Failures vs Temperature")
+
+
+# Predict for 31 degrees with confidence interval
+
+# Create a new data frame for the prediction
+new_data <- data.frame(Temp = 31)
+
+# Predict probabilities (on the logit scale) and get standard errors
+fit <- predict(mod2, newdata = new_data, type = "link", se.fit = TRUE)
+
+# Convert predictions back to the probability scale
+pi <- plogis(fit$fit)
+
+# Calculate 95% Wald confidence intervals (on the probability scale)
+pi_low <- plogis(fit$fit - 1.96 * fit$se.fit)
+pi_high <- plogis(fit$fit + 1.96 * fit$se.fit)
+
+# Print the estimated probability and the confidence interval
+print(pi)
+print(c(pi_low, pi_high))
+
+
+### 3.3
+
+# Set the number of bootstrap samples
+B <- 1000
+
+# Initialize a matrix to store the bootstrap predictions
+temps <- 10:100
+bootstrap_preds <- matrix(NA, nrow = B, ncol = length(temps))
+colnames(bootstrap_preds) <- temps
+
+# Run the bootstrap
+set.seed(123)  # for reproducibility
+for (b in 1:B) {
+  # Resample the data
+  bootstrap_data <- df[sample(nrow(df), replace = TRUE), ]
+  
+  # Fit the model to the bootstrap data
+  bootstrap_model <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, 
+                         data = bootstrap_data, family = binomial)
+  
+  # Compute predictions at each temperature
+  for (temp in temps) {
+    bootstrap_preds[b, as.character(temp)] <- 
+      predict(bootstrap_model, newdata = data.frame(Temp = temp), type = "response")
+  }
+}
+
+# Compute 90% confidence intervals
+ci_lower <- apply(bootstrap_preds, 2, function(x) quantile(x, 0.05))
+ci_upper <- apply(bootstrap_preds, 2, function(x) quantile(x, 0.95))
+
+# Combine results into a data frame
+results <- data.frame(
+  Temperature = temps,
+  Lower_CI = ci_lower,
+  Upper_CI = ci_upper
+)
+
+# Print results
+print(results)
+
+library(ggplot2)
+
+ggplot(results, aes(x = Temperature)) +
+  geom_ribbon(aes(ymin = Lower_CI, ymax = Upper_CI), fill = "grey80") +
+  geom_line(aes(y = (Lower_CI + Upper_CI) / 2), color = "red") +
+  labs(y = "Predicted Probability of O-ring Failure", 
+       title = "Predicted Probabilities with 90% Confidence Intervals") +
+  theme_minimal()
+
+
+### 3.4
+
+# Define a linear model
+linear_model <- lm(cbind(O.ring, 6 - O.ring) ~ Temp, data = df)
+summary(linear_model)
+
+# Check residuals
+resid_plot <- plot(resid(linear_model), pch = 16,
+                   main = "Residuals vs Fitted Values", 
+                   xlab = "Fitted Values", 
+                   ylab = "Residuals")
+
+qqnorm(resid(linear_model))
+qqline(resid(linear_model))
+
+# Check for homoscedasticity
+plot(fitted(linear_model), abs(resid(linear_model)),
+     xlab = "Fitted values", ylab = "Absolute Residuals",
+     main = "Scale-Location Plot")
