@@ -1,0 +1,213 @@
+---
+title: "Lab 1, Short Questions"
+geometry: margin=1in
+output:
+  pdf_document:
+    toc: yes
+    number_sections: yes
+fontsize: 11pt
+---
+
+```{r load packages for homework 2, message=FALSE}
+library(tidyverse)
+library(patchwork)
+
+library(nnet)
+library(GGally)
+library(car)
+```
+
+# Strategic Placement of Products in Grocery Stores (5 points)
+
+These questions are taken from Question 12 of chapter 3 of the textbook(Bilder and Loughin’s “Analysis of Categorical Data with R.
+
+> *In order to maximize sales, items within grocery stores are strategically placed to draw customer attention. This exercise examines one type of item—breakfast cereal. Typically, in large grocery stores, boxes of cereal are placed on sets of shelves located on one side of the aisle. By placing particular boxes of cereals on specific shelves, grocery stores may better attract customers to them. To investigate this further, a random sample of size 10 was taken from each of four shelves at a Dillons grocery store in Manhattan, KS. These data are given in the *cereal_dillons.csv *file. The response variable is the shelf number, which is numbered from bottom (1) to top (4), and the explanatory variables are the sugar, fat, and sodium content of the cereals.*
+
+```{r read cereal data, message=FALSE}
+# setwd("/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/report")
+cereal <- read_csv('/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/short-questions/cereal_dillons.csv')
+```
+
+
+## Recode Data 
+(1 point) The explanatory variables need to be reformatted before proceeding further (sample code is provided in the textbook). First, divide each explanatory variable by its serving size to account for the different serving sizes among the cereals. Second, rescale each variable to be within 0 and 1. Construct side-by-side box plots with dot plots overlaid for each of the explanatory variables. Also, construct a parallel coordinates plot for the explanatory variables and the shelf number. Discuss whether possible content differences exist among the shelves.
+
+```{r recode data}
+# rescale the values between 0 and 1
+Rescale <- function(values) {
+    return((values - min(values)) / (max(values) - min(values)))
+}
+
+cereal <- cereal %>%
+    mutate(sodium_g = (sodium_mg / 1000)) %>%
+    mutate(
+        Shelf = factor(Shelf),
+        Cereal = factor(Cereal),
+        sugar = sugar_g / size_g,
+        fat = fat_g / size_g,
+        sodium = sodium_g / size_g
+    ) %>%
+    mutate(
+        sugar = Rescale(sugar),
+        fat = Rescale(fat),
+        sodium = Rescale(sodium)
+    )
+```
+
+```{r boxplots, fig.align="center"}
+BoxPlot <- function(df, col) {
+    return(
+        df %>% ggplot(aes(x = Shelf, y = !!sym(col))) +
+            geom_boxplot(aes(fill = Shelf)) +
+            geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.04) +
+            labs(fill = "Shelf") +
+            coord_flip() +
+            ggtitle(col) +
+            theme(plot.title = element_text(lineheight = 1, face = "bold")) +
+            ylab(col) +
+            xlab("Shelf")
+        )
+}
+
+BoxPlot(cereal, "sugar") | BoxPlot(cereal, "fat") | BoxPlot(cereal, "sodium")
+```
+
+> 'Fill in: What do you observe in these boxplots?'
+>
+> Shelf 2 has the highest probability for sugar and shelf 1 has the highest probability for sodium. fat doesnt seem to have any particular self that has a high probability. 
+
+```{r parallel coordiantes plot, fig.align="center"}
+
+cereal %>% select(Shelf, sugar, fat, sodium) %>% ggparcoord(
+    columns = 2:4,
+    groupColumn = 1,
+    showPoints = TRUE,
+    scale = "globalminmax",
+    # order = "anyClass",
+    title = "Parallel Coordinates Plot for Explanatory Variables and Shelf Number",
+    alphaLines = 0.5
+)
+```
+
+> 'Fill in: What do you observe in these parallel coordinates plots?'
+>
+> shelf 2 has a lot of negative values for size_g and a positive values for sugar. The opposite is for shelf 3, it has a positive value for size_g and negative values for sugar.
+
+> Fill in: Do content differences exist between the shelves?'
+>
+> There is some content differences between the shelves. Size, sugar and fat are good examples where we can see the dispersion of the different shelves in each.
+
+## Evaluate Ordinal vs. Categorical 
+(1 point) The response has values of $1, 2, 3,$ and $4$. Explain under what setting would it be desirable to take into account ordinality, and whether you think that this setting occurs here. Then estimate a suitable multinomial regression model with linear forms of the sugar, fat, and sodium variables. Perform LRTs to examine the importance of each explanatory variable. Show that there are no significant interactions among the explanatory variables (including an interaction among all three variables).
+
+> Fill in: What do you think about ordinal data?' 
+>
+> settings that take into account ordinality are things like grades or a Likert scale. In this case, because the shelves do not need to be in order or a series they can be considered nomial.
+
+```{r multinomial logit regressions}
+model_cereal_shelves_linear <- multinom(Shelf ~ sugar + fat + sodium, data = cereal)
+summary(model_cereal_shelves_linear)
+
+model_cereal_shelves_quadratic <- multinom(
+    Shelf ~ sugar + fat + sodium +
+    sugar:fat + sugar:sodium + fat:sodium + sugar:fat:sodium,
+    data = cereal
+)
+summary(model_cereal_shelves_quadratic)
+```
+
+```{r likelihood ratio tests: main effects}
+lrt_cereal_main_effects <- round(Anova(model_cereal_shelves_linear), 4)
+lrt_cereal_main_effects
+```
+
+```{r likelihood ratio tests: interaction effects} 
+lrt_cereal_quadratic_effects <- round(Anova(model_cereal_shelves_quadratic), 4)
+lrt_cereal_quadratic_effects
+```
+
+> 'Fill in: Write about what you learn as a result of these tests, using inline code evaluation.'
+>
+> looking at the p-values for the main effect model $sugar = `r lrt_cereal_main_effects[1,3]`$ and $sodium = `r lrt_cereal_main_effects[3,3]`$ making them very statistically significant. $fat = `r lrt_cereal_main_effects[2,3]`$ making it $> 0.1$ which means it is not statistically significant.
+>
+> Looking at the the p-values for the quadratic effect model $sugar = `r lrt_cereal_quadratic_effects[1,3]`$ and $sodium = `r lrt_cereal_quadratic_effects[3,3]`$ making them both still very statistically significant. $fat = `r lrt_cereal_quadratic_effects[2,3]`$ is still $> 0.1$ making it not statistically significant. for the interactions we have $sugar:fat = `r lrt_cereal_quadratic_effects[4,3]`$, $sugar:sodium = `r lrt_cereal_quadratic_effects[5,3]`$, $fat:sodium = `r lrt_cereal_quadratic_effects[6,3]`$, and $sugar:fat:sodium = `r lrt_cereal_quadratic_effects[7,3]`$ this means that all the interactions have are $> 0.1$ making them all not statistically significant which means we can omit them from the model.
+
+## Where do you think Apple Jacks will be placed? 
+(1 point) Kellogg’s Apple Jacks (http://www.applejacks.com) is a cereal marketed toward children. For a serving size of $28$ grams, its sugar content is $12$ grams, fat content is $0.5$ grams, and sodium content is $130$ milligrams. Estimate the shelf probabilities for Apple Jacks.
+
+```{r predictions for apple jacks}
+Rescale2 <- function(value, col) {
+    minn <- ifelse(value < min(cereal[col]), value, min(cereal[col]))
+    maxx <- ifelse(value > max(cereal[col]), value, max(cereal[col]))
+    return((value - minn) / (maxx - minn))
+}
+apple_jacks <- data.frame(
+    sugar = Rescale2(12 / 28, "sugar_g"),
+    fat = Rescale2(0.5 / 28, "fat_g"),
+    sodium = Rescale2((130 / 1000) / 28, "sodium_g")
+)
+aj_shelf_probs <- predict(model_cereal_shelves_linear, newdata = apple_jacks, type = "probs")
+round(aj_shelf_probs, 4)
+```
+
+> 'Fill this in: Where does your model predict apple jacks will be placed?'
+>
+> Our model predicts that the apple jacks will be placed on shelf `r which.max(aj_shelf_probs)` with a $`r round(max(aj_shelf_probs) * 100, 2)`\%$.
+
+## Figure 3.3 
+(1 point) Construct a plot similar to Figure 3.3 where the estimated probability for a shelf is on the *y-axis* and the sugar content is on the *x-axis*. Use the mean overall fat and sodium content as the corresponding variable values in the model. Interpret the plot with respect to sugar content.
+
+```{r create figure 3.3}
+# shelf_vs_sugar_plot <- cereal %>% ggplot(aes(x = sugar, y = Shelf)) +
+#     geom_smooth(method=multinom(Shelf ~ sugar, data = cereal))
+# shelf_vs_sugar_plot
+```
+
+> 'Fill this in: What message does your plot give?'
+
+## Odds ratios 
+(1 point) Estimate odds ratios and calculate corresponding confidence intervals for each explanatory variable. Relate your interpretations back to the plots constructed for this exercise. 
+
+```{r produce odds ratios}
+odds_ratios <- round(exp(coef(model_cereal_shelves_linear)[,2:4]),2)
+odds_ratios
+
+cis_odd_ratios <- exp(confint(model_cereal_shelves_linear, level = 0.95))
+cis_odd_ratios[2:4,,]
+```
+
+> 'Fill this in: What do you learn about each of these variables?' 
+>
+> The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,1]` times for `sugar` holding the other variables constant. Also, The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,2]` times for `fat` holding the other varaibles constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[2,2]` times for `fat` holding the other variables constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[3,2]` times for `fat` holding the other variables constant. the odds for `sodium` have a very low effect on all shelves against the first shelf holding other variabels constant.
+
+
+# Alcohol, self-esteem and negative relationship interactions (5 points)
+
+Read the example **'Alcohol Consumption'** in chapter 4.2.2 of the textbook(Bilder and Loughin’s “Analysis of Categorical Data with R). This is based on a study in which moderate-to-heavy drinkers (defined as at least 12 alcoholic drinks/week for women, 15 for men) were recruited to keep a daily record of each drink that they consumed over a 30-day study period. Participants also completed a variety of rating scales covering daily events in their lives and items related to self-esteem. The data are given in the *DeHartSimplified.csv *data set. Questions 24-26 of chapter 3 of the textbook also relate to this data set and give definitions of its variables: the number of drinks consumed (`numall`), positive romantic-relationship events (`prel`), negative romantic-relationship events (`nrel`), age (`age`), trait (long-term) self-esteem (`rosn`), state (short-term) self-esteem (`state`).
+
+The researchers stated the following hypothesis:
+
+> *We hypothesized that negative interactions with romantic partners would be associated with alcohol consumption (and an increased desire to drink). We predicted that people with low trait self-esteem would drink more on days they experienced more negative relationship interactions compared with days during which they experienced fewer negative relationship interactions. The relation between drinking and negative relationship interactions should not be evident for individuals with high trait self-esteem.*
+
+```{r read drinking data, message=FALSE}
+# drinks <- read_csv('../data/short-questions/DeHartSimplified.csv')
+```
+
+## EDA 
+(2 points) Conduct a thorough EDA of the data set, giving special attention to the relationships relevant to the researchers' hypotheses. Address the reasons for limiting the study to observations from only one day.
+
+```{r drinking EDA}
+
+```
+
+> 'Fill this in: What do you learn?' 
+
+## Hypothesis One 
+(2 points) The researchers hypothesize that negative interactions with romantic partners would be associated with alcohol consumption and an increased desire to drink. Using appropriate models, evaluate the evidence that negative relationship interactions are associated with higher alcohol consumption and an increased desire to drink. 
+
+> 'Fill this in: What do you learn?' 
+
+## Hypothesis Two
+(1 point) The researchers hypothesize that the relation between drinking and negative relationship interactions should not be evident for individuals with high trait self-esteem. Conduct an analysis to address this hypothesis.
+
+> 'Fill this in: What do you learn?' 
