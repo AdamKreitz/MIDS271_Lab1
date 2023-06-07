@@ -39,18 +39,13 @@ Rescale <- function(values) {
 }
 
 cereal <- cereal %>%
-    mutate(sodium_g = (sodium_mg / 1000)) %>%
     mutate(
         Shelf = factor(Shelf),
         Cereal = factor(Cereal),
-        sugar = sugar_g / size_g,
-        fat = fat_g / size_g,
-        sodium = sodium_g / size_g
-    ) %>%
-    mutate(
-        sugar = Rescale(sugar),
-        fat = Rescale(fat),
-        sodium = Rescale(sodium)
+        sodium_g = (sodium_mg / 1000),
+        sugar = Rescale(sugar_g / size_g),
+        fat = Rescale(fat_g / size_g),
+        sodium = Rescale(sodium_g / size_g)
     )
 ```
 
@@ -59,7 +54,8 @@ BoxPlot <- function(df, col) {
     return(
         df %>% ggplot(aes(x = Shelf, y = !!sym(col))) +
             geom_boxplot(aes(fill = Shelf)) +
-            geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.04) +
+            geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.05) +
+            # geom_jitter() +
             labs(fill = "Shelf") +
             coord_flip() +
             ggtitle(col) +
@@ -137,8 +133,8 @@ lrt_cereal_quadratic_effects
 
 ```{r predictions for apple jacks}
 Rescale2 <- function(value, col) {
-    minn <- ifelse(value < min(cereal[col]), value, min(cereal[col]))
-    maxx <- ifelse(value > max(cereal[col]), value, max(cereal[col]))
+    minn <- ifelse(value < min(cereal[col] / cereal$size_g), value, min(cereal[col] / cereal$size_g))
+    maxx <- ifelse(value > max(cereal[col] / cereal$size_g), value, max(cereal[col] / cereal$size_g))
     return((value - minn) / (maxx - minn))
 }
 apple_jacks <- data.frame(
