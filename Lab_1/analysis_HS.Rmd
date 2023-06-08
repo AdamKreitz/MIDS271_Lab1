@@ -38,19 +38,46 @@ challenger %>%
 ```{r model}
 # Logistic regression from the paper
 # cbind(O.ring, Trials - O.ring) specifies the binomial response variable as the count of successes (O.ring) and the count of failures (total trials minus successes).
-mod1 <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + Pressure, data = challenger, family = binomial(link = "logit"))
+mod_full <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + Pressure, data = challenger, family = binomial(link = "logit"))
 
-summary(mod1)
+summary(mod_full)
 ```
 
 
 ```{r likelihood ratio tests}
 # DEL Compare this against Adam's results
-Anova(mod1, test = "LR")
+Anova(mod_full, test = "LR")
 ```
 
 
+```{r 3.2 models}
+# DEL compare these results against Adam's
+# DEL section title is "Confidence Intervals" but instructions don't have us do CIs?
 
+# Estimate model with only temperature
+mod_temp <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, data = challenger, family = binomial(link = "logit"))
+
+# Estimate model with temperature and quadratic term
+mod_temp_quad <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + I(Temp^2), data = challenger, family = binomial(link = "logit"))
+
+# Determine if quadratic term is important to the model
+# DEL High p-value means quadratic term is not important to the model
+anova(mod_temp, mod_temp_quad, test = "Chisq")
+```
+
+```{r 3.2 plots}
+beta_hat <- mod_temp$coefficients
+
+# pi_hat <- 1/(1 + exp(beta_hat[1] + beta_hat[2]*x))
+
+challenger %>%
+  ggplot() +
+  geom_line(
+    aes(x = Temp, y = 1 / (1 + exp(beta_hat[1] + beta_hat[2] * Temp))),
+    xlim = c(31, 81)
+  )
+
+```
 
 
 
