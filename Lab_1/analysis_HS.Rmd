@@ -1,0 +1,71 @@
+---
+title: "analysis_HS"
+output: pdf_document
+date: '2023-06-08'
+---
+
+```{r libraries}
+library(dplyr)
+library(ggplot2)
+library(car)
+```
+
+
+```{r import data, include=FALSE}
+# Import data
+challenger <- read_csv("~/271/MIDS271_Lab1/Lab_1/data/raw/challenger.csv")
+```
+
+```{r initial eda}
+# Confirmed all columns are numeric type
+class(challenger$O.ring)
+
+# DEL what is the Number column? Number of O-rings? All 6
+summary(challenger)
+
+# Confirmed no NAs in any column
+sapply(challenger, function(x) sum(is.na(x)))
+```
+
+```{r distributions eda}
+challenger %>%
+  ggplot(aes(x = Temp, y = Pressure)) +
+  geom_point(aes(color = factor(O.ring))) +
+  labs(title = "O-Ring Failures by Temperature and Pressure",
+       color = "O-Ring Failures")
+```
+
+```{r model}
+# Logistic regression from the paper
+# cbind(O.ring, Trials - O.ring) specifies the binomial response variable as the count of successes (O.ring) and the count of failures (total trials minus successes).
+mod1 <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + Pressure, data = challenger, family = binomial(link = "logit"))
+
+summary(mod1)
+```
+
+
+```{r likelihood ratio tests}
+# DEL Compare this against Adam's results
+Anova(mod1, test = "LR")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
