@@ -8,6 +8,8 @@ date: '2023-06-08'
 library(dplyr)
 library(ggplot2)
 library(car)
+library(tidyverse)
+library(mcprofile)
 ```
 
 
@@ -30,7 +32,10 @@ sapply(challenger, function(x) sum(is.na(x)))
 ```{r distributions eda}
 challenger %>%
   ggplot(aes(x = Temp, y = Pressure)) +
-  geom_point(aes(color = factor(O.ring))) +
+  geom_point(aes(color = factor(O.ring)), 
+             position = position_jitter(width = 0.2, height = 0.2)) +
+  xlab("Temperature (Fahrenheit)") + 
+  ylab("Pressure (psi)") +
   labs(title = "O-Ring Failures by Temperature and Pressure",
        color = "O-Ring Failures")
 ```
@@ -42,6 +47,10 @@ mod_full <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + Pressure, data = challenger, 
 
 summary(mod_full)
 ```
+```{r delete}
+summary(mod_temp)
+```
+
 
 
 ```{r likelihood ratio tests}
@@ -65,23 +74,86 @@ mod_temp_quad <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + I(Temp^2), data = challe
 anova(mod_temp, mod_temp_quad, test = "Chisq")
 ```
 
-```{r 3.2 plots}
+```{r 3.2 probability plot}
+# Return the coefficients of the model
 beta_hat <- mod_temp$coefficients
+
+# Define the Temperature sequence
+temp_seq <- seq(from = 31, to = 81, by = 0.1)
+
+# Get the standard error
+new_data <- data.frame(Temp = temp_seq)
+pred_temp <- predict(mod_temp, newdata = new_data, type = "link", se.fit = TRUE)
+temp_se <- pred_temp$se.fit
 
 # pi_hat <- 1/(1 + exp(beta_hat[1] + beta_hat[2]*x))
 
-challenger %>%
-  ggplot() +
-  geom_line(
-    aes(x = Temp, y = 1 / (1 + exp(beta_hat[1] + beta_hat[2] * Temp))),
-    xlim = c(31, 81)
-  )
+# DEL mod_temp <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, data = challenger, family = binomial(link = "logit"))
+# DEL looks like Adam's
+# DEL Is it correct that predicted probability of failure at 30 degrees = 80%?
+
+ggplot() +
+geom_ribbon(aes(x = temp_seq, 
+                ymin = plogis(beta_hat[1] + beta_hat[2] * temp_seq - 1.96 * temp_se), 
+                ymax = plogis(beta_hat[1] + beta_hat[2] * temp_seq + 1.96 * temp_se)),
+            color = "blue",
+            linetype = "dotted",
+            fill = NA) +
+geom_line(
+  aes(x = temp_seq, y = 1 / (1 + exp(-(beta_hat[1] + beta_hat[2] * temp_seq)))),
+  xlim = c(31, 81)) +
+ylab("Predicted Probability of O-Ring Failure") +
+xlab("Temperature (Fahrenheit)") +
+labs(title = "Decreasing Probability of O-Ring Failure with Increased Temperature") + 
+scale_x_continuous(breaks = seq(30, 80, by = 10), limits = c(31, 81)) +
+scale_y_continuous(breaks = seq(0, 1, by = 0.2))
+
+
+# DEL At 80 degrees, the predicted probability of success (i.e. o-ring failure) = 0.01532063
+# DEL At 50 degrees, the predicted probability of success (i.e. o-ring failure) = 0.3329037 
+# 1 / (1 + exp(-(beta_hat[1] + beta_hat[2] * 50)))
 
 ```
 
 
+```{r 3.2 number of failures plot}
+# DEL Multiply the predicted probability of O.ring failure at different temps by 6 to get the expected number of failures
+pred_probs_temp <- predict(mod_temp, newdata = new_data, type = "response")
+
+ggplot() +
+geom_line(
+  aes(x = temp_seq, y = (pred_probs_temp * 6)),
+  xlim = c(31, 81)) +
+ylab("Predicted Number of O-Ring Failures") +
+xlab("Temperature (Fahrenheit)") +
+labs(title = "Decreasing Number of O-Ring Failures with Increased Temperature") + 
+scale_x_continuous(breaks = seq(30, 80, by = 10), limits = c(31, 81)) +
+scale_y_continuous(breaks = seq(0, 6, by = 1), limits = c(0, 6))
+```
 
 
+```{r 3.2 prediction}
+new_data_31 <- data.frame(Temp = 31)
+
+pred_probs_31 <- predict(mod_temp, newdata = new_data_31, type = "response")
+pred_probs_31
+
+# Create the predictor data
+predict_data <- data.frame("(Intercept)" = 1,
+                           Temp = 31,
+                           check.names = FALSE)
+                           
+# Create the changing matrix K
+K <- matrix(data = as.matrix(predict_data), nrow = 1, ncol = 2)
+colnames(K) <- colnames(predict_data)
+
+linear_combo <- mcprofile(object = mod_temp, CM = K)
+
+ci_logit_profile <- confint(object = linear_combo, level = 0.95)
+
+mroz_logit_ci <- exp(ci_logit_profile$confint) / (1 + exp(ci_logit_profile$confint))
+mroz_logit_ci
+```
 
 
 
