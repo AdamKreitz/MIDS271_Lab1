@@ -249,6 +249,7 @@ curve(predict_prob(x, model_cereal_shelves_linear)[, "4"], add = TRUE,
 # Create a legend
 legend("topleft", legend = c("Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"), 
        col = c("blue", "red", "green", "purple"), lwd = 2)
+
 ```
 
 
