@@ -1,0 +1,276 @@
+---
+title: "W271 Group Lab 1"
+subtitle: "Investigating the 1986 Space Shuttle Challenger Accident"
+author: "Adam Kreitzman, Hailee Schuele, Lee Perkins, Paul Cooper"
+output: bookdown::pdf_document2
+fontsize: 11pt
+geometry: margin=1in
+---
+
+```{r, include=F}
+library(tidyverse)
+library(lmtest)
+library(ggplot2)
+library(car)
+```
+
+\newpage
+
+```{=tex}
+\begin{abstract} 
+This report will, indeed, be abstract. No, instead, describe your goals your approach, and what you learn.
+\end{abstract}
+```
+# Introduction
+
+PLACE INTRODUCTION HERE
+
+## Research question
+
+PLACE RESEARCH QUESTION HERE
+
+# Data (20 points)
+
+```{r, include=F}
+# df <- read.csv("../data/raw/challenger.csv")
+challenger <- read.csv("/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/raw/challenger.csv")
+```
+
+**Complete the following task. In your final submission, please remove this question prompt so that your report reads as a report. The Data Section of this report is worth 20 points.**
+
+-   Conduct a thorough EDA of the data set.
+
+    -   This should include both graphical and tabular analysis as taught in this course.
+    -   Since the report has a page-limit, you will have to be selective when choosing visuals to illustrate your key points, associated with a concise explanation of the visuals.
+
+-   This EDA should begin with an inspection of the given dataset; examination of anomalies, missing values, potential of top and/or bottom code etc.
+
+PLACE DATA PARAGRAPH HERE. MAKE SURE THEY SATISFY THE ABOVE TASKS
+
+## Description
+
+**Complete the following task. In your final submission, please remove this question prompt so that your report reads as a report.**
+
+-   Describe the data that you are using. How is this data generated, what is the sampling process that brought it to your availability. If it is helpful, you might describe the population (i.e. the Random Variables) that exist and how samples are produced from these random variables.
+-   The authors use logistic regression to estimate the probability an O-ring will fail. In order to use this model, the authors needed to assume that each O-ring is independent for each launch. Discuss why this assumption is necessary and the potential problems with it. Note that a subsequent analysis helped to alleviate the authors' concerns about independence.
+
+PLACE DATA DESCRIPTION PARAGRAPH HERE. MAKE SURE THEY SATISFY THE ABOVE TASKS
+
+## Key Features
+
+EXPLORATORY DATA ANALYSIS PT1 GOES HERE
+
+```{r scatter plots of Temp vs O.ring and Pressure vs O.ring, echo=F, fig.align="center"}
+# i combined the plots here because they were the same, and it saves space.
+# if we do not want this just delete everything after the `|` and uncomment the plot below
+plot(challenger$Temp, challenger$O.ring, pch = 16, xlab = "Temperature", ylab = "O.ring") | plot(challenger$Pressure, challenger$O.ring, pch = 16, xlab = "Pressure", ylab = "O.ring")
+```
+
+EXPLORATORY DATA ANALYSIS PT2 GOES HERE
+
+```{r scatter plot of Pressure vs O.ring, echo=F, fig.align="center"}
+# plot(df$Pressure, df$O.ring, pch = 16, xlab = "Pressure", ylab = "O.ring")
+```
+
+EXPLORATORY DATA ANALYSIS PT3 GOES HERE
+
+```{r, echo=F, fig.align="center"}
+# I am copying the code from the Report-Analysis folder.
+# these plots do not look like the plot on the Doc.
+# is this right???
+
+# hist(df$Temp, xlab = "Temperature", main = "Histogram of Temperature")
+# hist(df$Pressure, xlab = "Pressure", main = "Histogram of Pressure")
+```
+
+EXPLORATORY DATA ANALYSIS PT4 GOES HERE
+
+```{r boxplot of Temp, echo=F, fig.align="center"}
+boxplot(challenger$Temp ~ challenger$O.ring, xlab = "O.ring", ylab = "Temperature",
+        main = "Box plot of Temperature by O.ring")
+
+# To me it seemed like the Temp boxplot was the most meaningful
+# uncomment if you think it should be included
+# boxplot(df$Pressure ~ df$O.ring, xlab = "O.ring", ylab = "Pressure",
+#         main = "Box plot of Pressure by O.ring")
+```
+
+EXPLORATORY DATA ANALYSIS PT5 GOES HERE
+
+```{r heatmap of correlation matrix, echo=F, fig.align="center"}
+heatmap(cor(challenger[, c("O.ring", "Temp", "Pressure")]),
+        col = colorRampPalette(c("blue", "white", "red"))(100),
+        main = "Heatmap of Correlation Matrix")
+```
+
+EXPLORATORY DATA ANALYSIS PT6 GOES HERE
+
+# Analysis
+
+## Reproducing Previous Analysis (10 points)
+
+**Your analysis should address the following two questions. In your final submission, please remove this question prompt so that your report reads as a report.**
+
+1.  Estimate the logistic regression model that the authors present in their report -- include the variables as linear terms in the model. Evaluate, using likelihood ratio tests, the statistical significance of each explanatory variable in the model. Evaluate, using the context and data understanding that you have created in the **Data** section of this report, the practical significance of each explanatory variable in the model.
+
+2.  Dalal, Fowlkes, and Hoadley (1989) chose to remove `pressure` from the model based on their likelihood ratio tests. Critically evaluate, using your test results and understanding of the question and data, whether `pressure` should be included in the model, or instead, `pressure` should not be included in the model. Your report needs to make a determination, argue why it is most appropriate choice, and make note of how (if at all) the model results are affected by the choice of including or excluding `pressure`.
+
+PLACE REPRODUCING PREVIOUS ANALYSIS PT1 HERE
+
+```{r model}
+# Logistic regression from the paper
+mod_full <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + Pressure, data = challenger, family = binomial(link = "logit"))
+summary(mod_full)
+```
+
+PLACE REPRODUCING PREVIOUS ANALYSIS PT2 HERE
+
+PLACE REPRODUCING PREVIOUS ANALYSIS LIKELIHOOD RATIO TEST HERE
+
+```{r likelihood ratio tests}
+Anova(mod_full, test = "LR")
+```
+
+PLACE REPRODUCING PREVIOUS ANALYSIS PRESSURE DEBATE HERE
+
+## Confidence Intervals (20 points)
+
+No matter what you determined about using or dropping `pressure`, for this section begin by considering the simplified model $logit(\pi) = \beta_0 + \beta_1 Temp$, where $\pi$ is the probability of an O-ring failure. Complete the following:
+
+1.  Estimate the logistic regression model.
+2.  Determine if a quadratic term is needed in the model for the temperature in this model.
+3.  Construct two plots:
+4.  $\pi$ vs. Temp; and,
+5.  Expected number of failures vs. Temp.
+
+Specific requirements for these plots:
+
+-   Use a temperature range of 31° to 81° on the x-axis even though the minimum temperature in the data set was 53°.\
+-   Include the 95% Wald confidence interval bands for $\pi$ on the plot. Describe, in your analysis of these plots, why the bands much wider for lower temperatures than for higher temperatures?
+
+3.  The temperature was 31° at launch for the Challenger in 1986. Estimate the probability of an O-ring failure using this temperature, and compute a corresponding confidence interval. Discuss what assumptions need to be made in order to apply the inference procedures.
+
+PLACE CONFIDENCE INTERVALS PT1 HERE. MAKE SURE THEY ALL SATISFY THE ABOVE TASKS
+
+```{r confidence intervals}
+# Estimate model with only temperature
+mod_temp <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, data = challenger, family = binomial(link = "logit"))
+
+# Estimate model with temperature and quadratic term
+mod_temp_quad <- glm(cbind(O.ring, 6 - O.ring) ~ Temp + I(Temp^2), data = challenger, family = binomial(link = "logit"))
+
+# Determine if quadratic term is important to the model
+anova(mod_temp, mod_temp_quad, test = "Chisq")
+```
+
+PLACE CONFIDENCE INTERVALS PT2 HERE.
+
+PLACE CONFIDENCE INTERVALS PLOTS PT1 HERE.
+
+```{r confidence interval plot1, echo=F, fig.align="center"}
+# The plots in the code didn't feel like they were the same as in the Doc?
+```
+
+PLACE CONFIDENCE INTERVALS PLOTS PT2 HERE.
+
+```{r confidence interval plot 2, echo=F, fig.align="center"}
+# where is the plot code? Also, should we just show it side by side with the previous confidence interval plot?
+```
+
+PLACE CONFIDENCE INTERVALS PLOTS PT3 HERE.
+
+## Bootstrap Confidence Intervals (30 points)
+
+Rather than relying on asymptotic properties, consider using a parametric bootstrap, as did Dalal, Fowlkes and Hoadley. To do this:
+
+1.  Simulate a large number of data sets (n = 23 for each) by re-sampling with replacement from the data.
+2.  Estimate a model for each dataset.
+3.  Compute the effect at a specific temperature of interest.
+
+To produce a confidence interval, the authors used the 0.05 and 0.95 observed quantiles from the simulated distribution as their 90% confidence interval limits.
+
+Using the parametric bootstrap, compute 90% confidence intervals separately at each integer temperature between 10° and 100° Fahrenheit.
+
+In this section, you should describe your process, justify such a process, and present your results in a way that is compelling for your reader.
+
+PLACE BOOTSTRAP CONFIDENCE INTERVALS PT1 HERE. MAKE SURE THEY ALL SATISFY THE ABOVE TASKS
+
+```{r bootstrap confidence interval plot, echo=F, fig.align="center"}
+# Set the number of bootstrap samples
+B <- 1000
+
+# Initialize a matrix to store the bootstrap predictions
+temps <- 10:100
+bootstrap_preds <- matrix(NA, nrow = B, ncol = length(temps))
+colnames(bootstrap_preds) <- temps
+
+# Run the bootstrap
+set.seed(123)  # for reproducibility
+for (b in 1:B) {
+  # Resample the data
+  bootstrap_data <- challenger[sample(nrow(challenger), replace = TRUE), ]
+  # Fit the model to the bootstrap data
+  bootstrap_model <- glm(cbind(O.ring, 6 - O.ring) ~ Temp, 
+                         data = bootstrap_data, family = binomial)
+  # Compute predictions at each temperature
+  for (temp in temps) {
+    bootstrap_preds[b, as.character(temp)] <- 
+      predict(bootstrap_model, newdata = data.frame(Temp = temp), type = "response")
+  }
+}
+
+# Compute 90% confidence intervals
+ci_lower <- apply(bootstrap_preds, 2, function(x) quantile(x, 0.05))
+ci_upper <- apply(bootstrap_preds, 2, function(x) quantile(x, 0.95))
+
+# Combine results into a data frame
+results <- data.frame(
+  Temperature = temps,
+  Lower_CI = ci_lower,
+  Upper_CI = ci_upper
+)
+
+ggplot(results, aes(x = Temperature)) +
+  geom_ribbon(aes(ymin = Lower_CI, ymax = Upper_CI), fill = "grey80") +
+  geom_line(aes(y = (Lower_CI + Upper_CI) / 2), color = "red") +
+  labs(y = "Predicted Probability of O-ring Failure", 
+       title = "Predicted Probabilities with 90% Confidence Intervals") +
+  theme_minimal()
+```
+
+PLACE BOOTSTRAP CONFIDENCE INTERVALS PT2 HERE
+
+## Alternative Specification (10 points)
+
+With the same set of explanatory variables in your final model, estimate a linear regression model. Explain the model results; conduct model diagnostic; and assess the validity of the model assumptions. Would you use the linear regression model or binary logistic regression in this case? Explain why.
+
+PLACE ALTERNATIVE SPECIFICATION PT1 HERE. MAKE SURE THEY SATISFY THE ABOVE TASK
+
+```{r qq plot, echo=F, fig.align="center"}
+# Should we show the code for the linear_model?
+
+# Define a linear model
+linear_model <- lm(cbind(O.ring, 6 - O.ring) ~ Temp, data = challenger)
+summary(linear_model)
+
+# Check residuals
+resid_plot <- plot(resid(linear_model), pch = 16,
+                   main = "Residuals vs Fitted Values",
+                   xlab = "Fitted Values",
+                   ylab = "Residuals")
+
+qqnorm(resid(linear_model))
+qqline(resid(linear_model))
+```
+
+PLACE ALTERNATIVE SPECIFICATION PT2 HERE
+
+# Conclusions (10 points)
+
+Interpret the main result of your preferred model in terms of both odds and probability of failure. Summarize this result with respect to the question(s) being asked and key takeaways from the analysis.
+
+PLACE CONCLUSION HERE
+
+`mod_full` is the preferred model to help make safety recommendations for limiting catastrophic O-ring failures in shuttle launches. What makes `mod_full` the preferred model is the negative relationship between the temperature and O-rings. This suggests that for each 10 degree decrease in temperature, the estimated log odds of O-ring failure increase by `r round(exp(-10 * coef(mod_full)[2]) ,2)`, all other variables held constant. Additionally, for each 10 psi decrease in pressure, the estimated log odds of O-ring failure increases by `r round(exp(-10 * coef(mod_full)[3]) ,2)`, all other variables held constant. If we test the probability of failure for the Challenger's conditions with a Temperature of 31 and a pressure of 240, there was a `r round(predict(mod_full, newdata=data.frame(Temp=31,Pressure=240), type="response"), 4) * 100`% chance of failure. 
+
+<!-- IGNORE:: round(exp(coef(mod_full)[1] + coef(mod_full)[2] * -10 + coef(mod_full)[3] * -10)/(1 + exp(coef(mod_full)[1] + coef(mod_full)[2] * -10 + coef(mod_full)[3] * -10)), 4) * 100 === 96.83 -->
