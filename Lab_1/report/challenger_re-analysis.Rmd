@@ -276,13 +276,13 @@ ci_upper <- apply(bootstrap_preds, 2, function(x) quantile(x, 0.95))
 
 # Compute mean predictions at each temperature
 mean_preds <- apply(bootstrap_preds, 2, mean)
-# Combine results into a data frame
 
+# Combine results into a data frame
 results <- data.frame(
   Temperature = temps,
   Lower_CI = ci_lower,
   Upper_CI = ci_upper,
-  Mean_Pred = mean_preds  # add this line
+  Mean_Pred = mean_preds
 )
 
 ggplot(results, aes(x = Temperature)) +
