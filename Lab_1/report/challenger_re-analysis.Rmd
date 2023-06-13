@@ -13,9 +13,11 @@ library(patchwork)
 library(lmtest)
 library(ggplot2)
 library(car)
+library(dplyr)
 
 library(nnet)
 library(GGally)
+library(gridExtra)
 
 set.seed(123)
 ```
@@ -80,12 +82,12 @@ The first chart that we created was a scatterplot of Temperature vs. O.Rings, se
 ```{r scatter plots of Temp vs O.ring and Pressure vs O.ring, echo=F, fig.align="center", fig.height=2, warning=F, results='hide'}
 scatter_temp <- challenger %>% ggplot(aes(y = factor(O.ring), x = Temp)) +
     geom_point() +
-    ylab("O.ring")
-    labs(title = "O-ring Failures by Pressure")
+    ylab("O.ring") +
+    labs(title = "O-ring Failures by Temperature")
 
 scatter_pressure <- challenger %>% ggplot(aes(y = factor(O.ring), x = Pressure)) +
     geom_point() +
-    ylab("O.ring")
+    ylab("O.ring") +
     labs(title = "O-ring Failures by Pressure")
 
 scatter_temp | scatter_pressure
@@ -232,10 +234,6 @@ pred_prob_graph | pred_num_graph
 
 The graph on the right shows the expected number of O-ring failures across temperatures. Again we see the downward trend as temperature increases. It's worth noting that almost 5 O-ring failures are expected at 31 degrees. We'll take a closer look in the next section.
 
-```{r confidence interval plot 2, echo=F, fig.align="center", fig.height=3, warning=F}
-
-```
-
 ### Probability of Failure
 The predicted probability of an O-ring failure at 31 degrees, the temperature during the 1986 Challenger launch, is 0.818. Because of the small number of observations in the data, we opted to use the 95% profile likelihood confidence interval instead of Wald. This resulted in a confidence interval of (0.142, 0.99). This is a very wide range of confidence, which coincides with the “Decreasing Probability of O-Ring Failure with Increased Temperature” graph.
 
@@ -326,3 +324,276 @@ We can see that the residuals are not randomly distributed in the QQ plot. This 
 # Conclusions
 
 The logistic model including both temperature and pressure,`mod_full`, is the preferred model to help make safety recommendations for limiting catastrophic O-ring failures in shuttle launches. What makes `mod_full` the preferred model is the negative relationship between the temperature and O-rings. This suggests that for each 10 degree decrease in temperature, the estimated odds of O-ring failure changes by `r round(exp(-10 * coef(mod_full)[2]) ,2)`, all other variables held constant. If we test the probability of failure for the Challenger's conditions with a Temperature of 31 and a pressure of 200, there was a `r round(predict(mod_full, newdata=data.frame(Temp=31,Pressure=200), type="response"), 4) * 100`% chance of failure. Since the dataset was small, the resulting confidence interval has a wide range making it difficult to accurately predict the chance failure. However, we did learn that temperature has a statistically significant effect on the O-ring's chance of failure. This leads us to believe that if the Challenger launched when the temperature was warmer, it would have had a lower chance of failure.
+
+\newpage
+
+# Lab 1, Short Questions
+
+# Strategic Placement of Products in Grocery Stores (5 points)
+
+These questions are taken from Question 12 of chapter 3 of the textbook(Bilder and Loughin's “Analysis of Categorical Data with R).
+
+> *In order to maximize sales, items within grocery stores are strategically placed to draw customer attention. This exercise examines one type of item—breakfast cereal. Typically, in large grocery stores, boxes of cereal are placed on sets of shelves located on one side of the aisle. By placing particular boxes of cereals on specific shelves, grocery stores may better attract customers to them. To investigate this further, a random sample of size 10 was taken from each of four shelves at a Dillons grocery store in Manhattan, KS. These data are given in the *cereal_dillons.csv *file. The response variable is the shelf number, which is numbered from bottom (1) to top (4), and the explanatory variables are the sugar, fat, and sodium content of the cereals.*
+
+```{r read cereal data, message=FALSE, include=F}
+# setwd("/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/report")
+cereal <- read_csv('/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/short-questions/cereal_dillons.csv')
+```
+
+
+## Recode Data 
+(1 point) The explanatory variables need to be reformatted before proceeding further (sample code is provided in the textbook). First, divide each explanatory variable by its serving size to account for the different serving sizes among the cereals. Second, rescale each variable to be within 0 and 1. Construct side-by-side box plots with dot plots overlaid for each of the explanatory variables. Also, construct a parallel coordinates plot for the explanatory variables and the shelf number. Discuss whether possible content differences exist among the shelves.
+
+```{r recode data}
+# rescale the values between 0 and 1
+Rescale <- function(values) {
+    return((values - min(values)) / (max(values) - min(values)))
+}
+
+cereal <- cereal %>%
+    mutate(
+        Shelf = factor(Shelf),
+        Cereal = factor(Cereal),
+        sodium_g = (sodium_mg / 1000),
+        sugar = Rescale(sugar_g / size_g),
+        fat = Rescale(fat_g / size_g),
+        sodium = Rescale(sodium_g / size_g)
+    )
+```
+
+```{r boxplots, fig.align="center", echo=F, fig.align="center", warning=F, results='hide'}
+BoxPlot <- function(df, col) {
+    return(
+        df %>% ggplot(aes(x = Shelf, y = !!sym(col))) +
+            geom_boxplot(aes(fill = Shelf)) +
+            geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.05) +
+            labs(fill = "Shelf") +
+            coord_flip() +
+            ggtitle(col) +
+            theme(plot.title = element_text(lineheight = 1, face = "bold")) +
+            ylab(col) +
+            xlab("Shelf")
+    )
+}
+
+BoxPlot(cereal, "sugar") | BoxPlot(cereal, "fat") | BoxPlot(cereal, "sodium")
+```
+
+> Shelf 2 has the highest probability for sugar and shelf 1 has the highest probability for sodium. fat doesnt seem to have any particular self that has a high probability. 
+
+```{r parallel coordiantes plot, echo=F, fig.align="center", fig.height=3, warning=F, results='hide'}
+cereal %>% select(Shelf, sugar, fat, sodium) %>% ggparcoord(
+    columns = 2:4,
+    groupColumn = 1,
+    showPoints = TRUE,
+    scale = "globalminmax",
+    title = "Parallel Coordinates Plot for Explanatory Variables and Shelf Number",
+    alphaLines = 0.5
+)
+```
+
+> shelf 2 has a lot of negative values for size_g and a positive values for sugar. The opposite is for shelf 3, it has a positive value for size_g and negative values for sugar.
+
+> There is some content differences between the shelves. Size, sugar and fat are good examples where we can see the dispersion of the different shelves in each.
+
+## Evaluate Ordinal vs. Categorical 
+(1 point) The response has values of $1, 2, 3,$ and $4$. Explain under what setting would it be desirable to take into account ordinality, and whether you think that this setting occurs here. Then estimate a suitable multinomial regression model with linear forms of the sugar, fat, and sodium variables. Perform LRTs to examine the importance of each explanatory variable. Show that there are no significant interactions among the explanatory variables (including an interaction among all three variables).
+
+> settings that take into account ordinality are things like grades or a Likert scale. In this case, because the shelves do not need to be in order or a series they can be considered nomial.
+
+```{r multinomial logit regressions, results=F}
+model_cereal_shelves_linear <- multinom(Shelf ~ sugar + fat + sodium, data = cereal)
+summary(model_cereal_shelves_linear)
+
+model_cereal_shelves_quadratic <- multinom(
+    Shelf ~ sugar + fat + sodium +
+    sugar:fat + sugar:sodium + fat:sodium + sugar:fat:sodium,
+    data = cereal
+)
+summary(model_cereal_shelves_quadratic)
+```
+
+```{r likelihood ratio tests: main effects}
+lrt_cereal_main_effects <- round(Anova(model_cereal_shelves_linear), 4)
+lrt_cereal_main_effects
+```
+
+```{r likelihood ratio tests: interaction effects} 
+lrt_cereal_quadratic_effects <- round(Anova(model_cereal_shelves_quadratic), 4)
+lrt_cereal_quadratic_effects
+```
+
+> looking at the p-values for the main effect model $sugar = `r lrt_cereal_main_effects[1,3]`$ and $sodium = `r lrt_cereal_main_effects[3,3]`$ making them very statistically significant. $fat = `r lrt_cereal_main_effects[2,3]`$ making it $> 0.1$ which means it is not statistically significant.
+>
+> Looking at the the p-values for the quadratic effect model $sugar = `r lrt_cereal_quadratic_effects[1,3]`$ and $sodium = `r lrt_cereal_quadratic_effects[3,3]`$ making them both still very statistically significant. $fat = `r lrt_cereal_quadratic_effects[2,3]`$ is still $> 0.1$ making it not statistically significant. for the interactions we have $sugar:fat = `r lrt_cereal_quadratic_effects[4,3]`$, $sugar:sodium = `r lrt_cereal_quadratic_effects[5,3]`$, $fat:sodium = `r lrt_cereal_quadratic_effects[6,3]`$, and $sugar:fat:sodium = `r lrt_cereal_quadratic_effects[7,3]`$ this means that all the interactions have are $> 0.1$ making them all not statistically significant which means we can omit them from the model.
+
+## Where do you think Apple Jacks will be placed? 
+(1 point) Kellogg's Apple Jacks (http://www.applejacks.com) is a cereal marketed toward children. For a serving size of $28$ grams, its sugar content is $12$ grams, fat content is $0.5$ grams, and sodium content is $130$ milligrams. Estimate the shelf probabilities for Apple Jacks.
+
+```{r predictions for apple jacks}
+Rescale2 <- function(value, col) {
+    minn <- ifelse(value < min(cereal[col] / cereal$size_g), value, min(cereal[col] / cereal$size_g))
+    maxx <- ifelse(value > max(cereal[col] / cereal$size_g), value, max(cereal[col] / cereal$size_g))
+    return((value - minn) / (maxx - minn))
+}
+apple_jacks <- data.frame(
+    sugar = Rescale2(12 / 28, "sugar_g"),
+    fat = Rescale2(0.5 / 28, "fat_g"),
+    sodium = Rescale2((130 / 1000) / 28, "sodium_g")
+)
+aj_shelf_probs <- predict(model_cereal_shelves_linear, newdata = apple_jacks, type = "probs")
+round(aj_shelf_probs, 4)
+```
+
+> Our model predicts that the apple jacks will be placed on shelf `r which.max(aj_shelf_probs)` with a $`r round(max(aj_shelf_probs) * 100, 2)`\%$.
+
+## Figure 3.3 
+(1 point) Construct a plot similar to Figure 3.3 where the estimated probability for a shelf is on the *y-axis* and the sugar content is on the *x-axis*. Use the mean overall fat and sodium content as the corresponding variable values in the model. Interpret the plot with respect to sugar content.
+
+```{r create figure 3.3, echo=F, fig.align="center", warning=F, results='hide'}
+# Define a function to calculate predicted probabilities for each shelf using mean fat and sugar
+predict_prob <- function(sugar, model) {
+  graph_data <- data.frame(sugar = sugar,
+                         fat = mean(cereal$fat),
+                         sodium = mean(cereal$sodium))
+  predicted_probs <- predict(model, newdata = graph_data, type = "probs")
+  return(predicted_probs)
+}
+
+# Plot the predicted probabilities for each shelf
+# Plot Shelf 1
+curve(predict_prob(x, model_cereal_shelves_linear)[, "1"], from = 0, to = 1,
+      xlab = "Sugar", ylab = expression(hat(pi)), 
+      main = "Predicted Probability of Shelf for Varying Sugar",
+      col = "blue", lwd = 2, ylim = c(0, 1))
+
+# Plot Shelf 2
+curve(predict_prob(x, model_cereal_shelves_linear)[, "2"], add = TRUE,
+      col = "red", lwd = 2)
+
+# Plot Shelf 3
+curve(predict_prob(x, model_cereal_shelves_linear)[, "3"], add = TRUE,
+      col = "green", lwd = 2)
+
+# Plot Shelf 4
+curve(predict_prob(x, model_cereal_shelves_linear)[, "4"], add = TRUE,
+      col = "purple", lwd = 2)
+
+# Create a legend
+legend("topleft", legend = c("Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"),
+       col = c("blue", "red", "green", "purple"), lwd = 2)
+```
+
+> The plot is telling me that shelf 2 has a very high probability with high sugar and the rest of the shelve has very low to no probability with high sugar. shelf 3 and 4 have high probabilities when the sugar is low or none. All the shelves have roughly almost the same probability when the sugar is around 0.6 and 0.7.
+
+## Odds ratios 
+(1 point) Estimate odds ratios and calculate corresponding confidence intervals for each explanatory variable. Relate your interpretations back to the plots constructed for this exercise. 
+
+```{r produce odds ratios}
+odds_ratios <- round(exp(coef(model_cereal_shelves_linear)[,2:4]),2)
+odds_ratios
+
+cis_odd_ratios <- exp(confint(model_cereal_shelves_linear, level = 0.95))
+cis_odd_ratios[2:4,,]
+```
+
+> The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,1]` times for `sugar` holding the other variables constant. Also, The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,2]` times for `fat` holding the other varaibles constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[2,2]` times for `fat` holding the other variables constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[3,2]` times for `fat` holding the other variables constant. the odds for `sodium` have a very low effect on all shelves against the first shelf holding other variabels constant.
+
+
+# Alcohol, self-esteem and negative relationship interactions (5 points)
+
+Read the example **'Alcohol Consumption'** in chapter 4.2.2 of the textbook(Bilder and Loughin’s “Analysis of Categorical Data with R). This is based on a study in which moderate-to-heavy drinkers (defined as at least 12 alcoholic drinks/week for women, 15 for men) were recruited to keep a daily record of each drink that they consumed over a 30-day study period. Participants also completed a variety of rating scales covering daily events in their lives and items related to self-esteem. The data are given in the *DeHartSimplified.csv *data set. Questions 24-26 of chapter 3 of the textbook also relate to this data set and give definitions of its variables: the number of drinks consumed (`numall`), positive romantic-relationship events (`prel`), negative romantic-relationship events (`nrel`), age (`age`), trait (long-term) self-esteem (`rosn`), state (short-term) self-esteem (`state`).
+
+The researchers stated the following hypothesis:
+
+> *We hypothesized that negative interactions with romantic partners would be associated with alcohol consumption (and an increased desire to drink). We predicted that people with low trait self-esteem would drink more on days they experienced more negative relationship interactions compared with days during which they experienced fewer negative relationship interactions. The relation between drinking and negative relationship interactions should not be evident for individuals with high trait self-esteem.*
+
+```{r read drinking data, include=FALSE}
+drinks <- read_csv('/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/short-questions/DeHartSimplified.csv')
+```
+
+## EDA 
+(2 points) Conduct a thorough EDA of the data set, giving special attention to the relationships relevant to the researchers' hypotheses. Address the reasons for limiting the study to observations from only one day.
+
+```{r drinking EDA, warning=F, message=F}
+# Median and above is defined as "high self esteem" for both rosn and state
+drinks <- drinks %>%
+  mutate(trait_bin = cut(rosn, breaks = 3), state_bin = cut(state, breaks=3))
+
+agg_df <- aggregate(drinks$numall, by=list(drinks$id), FUN=mean) %>%
+  rename("avg_drinks" = "x", "id" = "Group.1")
+
+drinks <- inner_join(x=drinks, y=agg_df, by="id") 
+
+drinks <- mutate(drinks, scaled_drinks = numall / avg_drinks)
+
+pairs(~numall + scaled_drinks + nrel + prel + rosn +state, data = drinks)
+```
+```{r additional eda, echo=F, fig.align="center", warning=F, results='hide'}
+p_0 <- drinks %>%
+  ggplot(aes(x= numall, y = ..prop.., group = 1)) +
+  geom_bar(fill = 'DarkBlue', color = 'black') +
+  geom_text(stat='count', aes(label=..count..), vjust=-1) +
+  xlab("Number of Drinks") +
+  ylab("Proportion") +
+  ylim(0,0.35)
+p_0
+
+p1 <- drinks %>%
+  ggplot(aes(y = nrel, x = numall)) +
+  geom_point()
+
+p2 <- drinks %>%
+  ggplot(aes(y = nrel, x = numall)) +
+  geom_point()
+
+p4 <- drinks %>%
+  ggplot(aes(y = nrel, x = scaled_drinks)) +
+  geom_point()
+
+p5 <- drinks %>%
+  ggplot(aes(x = nrel)) +
+  geom_density(aes(y = ..density.., color = trait_bin, fill = trait_bin),alpha=0.2)
+
+p6 <- drinks %>%
+  ggplot(aes(x = nrel)) +
+  geom_density(aes(y = ..density.., color = state_bin, fill = state_bin),alpha=0.2)
+
+p7 <- drinks %>%
+  ggplot(aes(x = numall)) +
+  geom_density(aes(y = ..density.., color = trait_bin, fill = trait_bin),alpha=0.2)
+
+p8 <- drinks %>%
+  ggplot(aes(x = numall)) +
+  geom_density(aes(y = ..density.., color = state_bin, fill = state_bin),alpha=0.2)
+
+grid.arrange(p1, p2, p4, nrow = 3, ncol = 1)
+grid.arrange(p5, p6, p7, p8, nrow = 4, ncol = 1)
+```
+
+On the surface, we don't observe strong linear relationships between the number of drinks and the number of negative relationship events. We do see some evidence that folks with lower 'state' and 'trait' self esteem values. tend to consume more drinks, but it is not compelling evidence on its own. 
+
+## Hypothesis One 
+(2 points) The researchers hypothesize that negative interactions with romantic partners would be associated with alcohol consumption and an increased desire to drink. Using appropriate models, evaluate the evidence that negative relationship interactions are associated with higher alcohol consumption and an increased desire to drink. 
+
+```{r poisson modeling, results=F}
+poisson_mod <- glm(numall ~ nrel, data = drinks, family = poisson(link="log"))
+summary(poisson_mod)
+
+(exp(coef(poisson_mod)))
+```
+We find a statistically significant positive correlation between negative relationship events and the number of drinks consumed. Exponentiating our coefficient, we can see that each 1-unit increase in negative relationship events corresponds to a 6.7% increase in average drinks consumed.
+
+We've limited the study to drinks on a single day, in order to keep the observation period consistent to fit the assumption of the Poisson distribution.
+
+## Hypothesis Two
+(1 point) The researchers hypothesize that the relation between drinking and negative relationship interactions should not be evident for individuals with high trait self-esteem. Conduct an analysis to address this hypothesis.
+
+```{r poisson modeling 2, results=F}
+poisson_mod <- glm(numall ~ nrel + trait_bin, data = drinks, family = poisson(link="log"))
+summary(poisson_mod)
+
+(exp(coef(poisson_mod))-1)*100
+```
+
+We divided the participants into 3 bins based on their trait self esteem, and see that, despite being in the highest bin, the negative relationship events continue to have a statistically significant effect on the number of drinks consumed. The effect is muted, but not absent, in individuals with high self esteem.
