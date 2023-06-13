@@ -44,8 +44,7 @@ We hope to determine if there is a significant correlation between one or both o
 # Data
 
 ```{r, include=F}
-# df <- read.csv("../data/raw/challenger.csv")
-challenger <- read.csv("/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/raw/challenger.csv")
+challenger <- read.csv("../data/raw/challenger.csv")
 ```
 
 ## Explaining the Variables
@@ -217,12 +216,6 @@ pred_prob_graph <- ggplot() +
     scale_x_continuous(breaks = seq(30, 80, by = 10), limits = c(31, 81)) +
     scale_y_continuous(breaks = seq(0, 1, by = 0.2))
 
-pred_prob_graph
-```
-
-The next graph shows the expected number of O-ring failures across temperatures. Again we see the downward trend as temperature increases. It's worth noting that almost 5 O-ring failures are expected at 31 degrees. We'll take a closer look in the next section.
-
-```{r confidence interval plot2, echo=F, fig.align="center", fig.height=3, warning=F}
 pred_probs_temp <- predict(mod_temp, newdata = new_data, type = "response")
 
 pred_num_graph <- ggplot() +
@@ -235,8 +228,10 @@ pred_num_graph <- ggplot() +
     scale_x_continuous(breaks = seq(30, 80, by = 10), limits = c(31, 81)) +
     scale_y_continuous(breaks = seq(0, 6, by = 1), limits = c(0, 6))
 
-pred_num_graph
+pred_prob_graph | pred_num_graph
 ```
+
+The graph on the right shows the expected number of O-ring failures across temperatures. Again we see the downward trend as temperature increases. It's worth noting that almost 5 O-ring failures are expected at 31 degrees. We'll take a closer look in the next section.
 
 ### Probability of Failure
 The predicted probability of an O-ring failure at 31 degrees, the temperature during the 1986 Challenger launch, is 0.818. Because of the small number of observations in the data, we opted to use the 95% profile likelihood confidence interval instead of Wald. This resulted in a confidence interval of (0.142, 0.99). This is a very wide range of confidence, which coincides with the “Decreasing Probability of O-Ring Failure with Increased Temperature” graph.
@@ -244,7 +239,7 @@ The predicted probability of an O-ring failure at 31 degrees, the temperature du
 ### Model Assumptions
 1. Two possible outcomes: Each O-ring either fails or doesn't, so this assumption is met.
 2. Constant probability of failure: The probability of failure is constructed to depend on temperature; we have reason to believe that this probability function is constant across trials.
-3. Independent & identical trials - As discussed above, independence is tricky to establish when O-rings on the same launch may be expected to have some impact on each other. By running a separate analysis on the probability of at least one failure – a scenario that avoids the same-flight dependencies – and getting similar results, we can see that this assumption isn't detrimental to our results.
+3. Independent & identical trials - As discussed above, independence is tricky to establish when O-rings on the same launch may be expected to have some impact on each other. By running a separate analysis on the probability of at least one failure - a scenario that avoids the same-flight dependencies - and getting similar results, we can see that this assumption isn't detrimental to our results.
 
 
 ## Bootstrap Confidence Intervals
@@ -313,17 +308,33 @@ Interpreting these results tells us that our predicted probability of an individ
 
 ## Alternative Specification
 
-We generated a linear model based on Temperature and then proceeded to run tests to check the linearity of the data. The results were clear from examining the pattern of residuals to see if they were randomly distributed. To do so, we generated a QQ plot (below) in order to check for homoscedasticity. 
+We generated a linear model based on Temperature and then proceeded to run tests to check the linearity of the data. It is also important to note that for the linear model, we treated the response variable as the number of O.ring failures, rather than modeling it as a binomial. The results were clear from examining the pattern of residuals to see if they were randomly distributed. To do so, we generated a QQ plot (below) in order to check for normalized distribution of residuals.  
 
-```{r qq plot, echo=F, fig.align="center", fig.height=3}
+```{r qq plot, echo=F, fig.align="center", fig.height=4}
 # Define a linear model
-linear_model <- lm(cbind(O.ring, 6 - O.ring) ~ Temp, data = challenger)
+linear_model <- lm(O.ring ~ Temp, data = challenger)
+# Predict probabilities
+challenger$predicted <- predict(linear_model, type = "response")
+# Create a scatter plot of observed vs predicted values
+par(mfrow=c(1,2))
+plot(challenger$Temp, challenger$O.ring,
+     main = "O.ring failure vs Temperature",
+     xlab = "Temperature",
+     ylab = "Predicted O.ring Failure",
+     pch = 19,
+     col = "blue")
+abline(linear_model, col = "red")
 
+# Add regression line
 qqnorm(resid(linear_model))
 qqline(resid(linear_model))
 ```
 
-We can see that the residuals are not randomly distributed in the QQ plot. This tells us that a linear model is likely not a good fit for the data. We see that at a lower quantile, the residuals tend to be highly positive, but at higher quantiles the residuals tend to be highly negative. In the middle of the data, it tends to oscillate positive and negative with smaller absolute residuals. Having these kinds of patterns in the QQ plot of linear residuals is not what you will see in a dataset that should be modeled linearly.
+We can see that the residuals are not normally distributed in the QQ plot. This tells us that a linear model is likely not a good fit for the data. We see that at a lower quantile, the residuals tend to be highly positive, and at higher quantiles the residuals also tend to be highly negative. In the middle of the data, it tends to oscillate positive and negative with smaller absolute residuals. Having these kinds of patterns in the QQ plot is not what you will see with a model that has normal residuals..
+
+We also want to check for homoscedasticity in the residuals, or in other words that the residuals in our fitted linear model are random in nature.
+
+In this case, the red line represents predicted values, and we can see definitively that the data does not have a strong linear relationship. We also see that at lower temperatures the residuals tend to be above the line, whereas at higher temperatures the residuals tend to be at a lower line, which violates the assumption of homoscedasticity. Based on these two things, we can confidently conclude that a linear model is not a good fit for this dataset.
 
 # Conclusions
 
@@ -340,8 +351,7 @@ These questions are taken from Question 12 of chapter 3 of the textbook(Bilder a
 > *In order to maximize sales, items within grocery stores are strategically placed to draw customer attention. This exercise examines one type of item—breakfast cereal. Typically, in large grocery stores, boxes of cereal are placed on sets of shelves located on one side of the aisle. By placing particular boxes of cereals on specific shelves, grocery stores may better attract customers to them. To investigate this further, a random sample of size 10 was taken from each of four shelves at a Dillons grocery store in Manhattan, KS. These data are given in the *cereal_dillons.csv *file. The response variable is the shelf number, which is numbered from bottom (1) to top (4), and the explanatory variables are the sugar, fat, and sodium content of the cereals.*
 
 ```{r read cereal data, message=FALSE, include=F}
-# setwd("/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/report")
-cereal <- read_csv('/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/short-questions/cereal_dillons.csv')
+cereal <- read_csv('../data/short-questions/cereal_dillons.csv')
 ```
 
 
@@ -380,7 +390,7 @@ BoxPlot <- function(df, col) {
     )
 }
 
-BoxPlot(cereal, "sugar") | BoxPlot(cereal, "fat") | BoxPlot(cereal, "sodium")
+BoxPlot(cereal, "sugar") + theme(legend.position = "none") | BoxPlot(cereal, "fat") + theme(legend.position = "none") | BoxPlot(cereal, "sodium")
 ```
 
 > Shelf 2 has the highest sugar and fat per serving. Shelf 1 has the highest sodium, while shelves 2-4 are somewhat equivalent. Fat doesnt seem to have any particular self that's much higher or lower. 
@@ -514,7 +524,7 @@ The researchers stated the following hypothesis:
 > *We hypothesized that negative interactions with romantic partners would be associated with alcohol consumption (and an increased desire to drink). We predicted that people with low trait self-esteem would drink more on days they experienced more negative relationship interactions compared with days during which they experienced fewer negative relationship interactions. The relation between drinking and negative relationship interactions should not be evident for individuals with high trait self-esteem.*
 
 ```{r read drinking data, include=FALSE}
-drinks <- read_csv('/home/rstudio/workspace/mnt/271/labs/MIDS271_Lab1/Lab_1/data/short-questions/DeHartSimplified.csv')
+drinks <- read_csv('../data/short-questions/DeHartSimplified.csv')
 ```
 
 ## EDA 
