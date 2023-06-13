@@ -126,7 +126,7 @@ temp_hist <- challenger %>% ggplot(aes(x = Temp)) +
 pressure_hist <- challenger %>% ggplot(aes(x = Pressure)) +
     geom_histogram(binwidth = 3) +
     xlab("Pressure") +
-    labs(title = "Histogram of Temperature")
+    labs(title = "Histogram of Pressure")
 
 temp_hist | pressure_hist
 ```
@@ -217,6 +217,12 @@ pred_prob_graph <- ggplot() +
     scale_x_continuous(breaks = seq(30, 80, by = 10), limits = c(31, 81)) +
     scale_y_continuous(breaks = seq(0, 1, by = 0.2))
 
+pred_prob_graph
+```
+
+The next graph shows the expected number of O-ring failures across temperatures. Again we see the downward trend as temperature increases. It's worth noting that almost 5 O-ring failures are expected at 31 degrees. We'll take a closer look in the next section.
+
+```{r confidence interval plot2, echo=F, fig.align="center", fig.height=3, warning=F}
 pred_probs_temp <- predict(mod_temp, newdata = new_data, type = "response")
 
 pred_num_graph <- ggplot() +
@@ -229,10 +235,8 @@ pred_num_graph <- ggplot() +
     scale_x_continuous(breaks = seq(30, 80, by = 10), limits = c(31, 81)) +
     scale_y_continuous(breaks = seq(0, 6, by = 1), limits = c(0, 6))
 
-pred_prob_graph | pred_num_graph
+pred_num_graph
 ```
-
-The graph on the right shows the expected number of O-ring failures across temperatures. Again we see the downward trend as temperature increases. It's worth noting that almost 5 O-ring failures are expected at 31 degrees. We'll take a closer look in the next section.
 
 ### Probability of Failure
 The predicted probability of an O-ring failure at 31 degrees, the temperature during the 1986 Challenger launch, is 0.818. Because of the small number of observations in the data, we opted to use the 95% profile likelihood confidence interval instead of Wald. This resulted in a confidence interval of (0.142, 0.99). This is a very wide range of confidence, which coincides with the “Decreasing Probability of O-Ring Failure with Increased Temperature” graph.
@@ -379,7 +383,7 @@ BoxPlot <- function(df, col) {
 BoxPlot(cereal, "sugar") | BoxPlot(cereal, "fat") | BoxPlot(cereal, "sodium")
 ```
 
-> Shelf 2 has the highest probability for sugar and shelf 1 has the highest probability for sodium. fat doesnt seem to have any particular self that has a high probability. 
+> Shelf 2 has the highest sugar and fat per serving. Shelf 1 has the highest sodium, while shelves 2-4 are somewhat equivalent. Fat doesnt seem to have any particular self that's much higher or lower. 
 
 ```{r parallel coordiantes plot, echo=F, fig.align="center", fig.height=3, warning=F, results='hide'}
 cereal %>% select(Shelf, sugar, fat, sodium) %>% ggparcoord(
@@ -392,14 +396,14 @@ cereal %>% select(Shelf, sugar, fat, sodium) %>% ggparcoord(
 )
 ```
 
-> shelf 2 has a lot of negative values for size_g and a positive values for sugar. The opposite is for shelf 3, it has a positive value for size_g and negative values for sugar.
+> Shelf 2 has a lot of high sugar values. Shelf 1 has low fat (for the most part) and higher sodium than the others, but otherwise sodium seems pretty evenly distributed. 
 
-> There is some content differences between the shelves. Size, sugar and fat are good examples where we can see the dispersion of the different shelves in each.
+> There are some noticeable content differences between the shelves. Specifically, high sugar on shelf 2 and and high sodium in shelf 1. There's dispersion of sodium, sugar, and fat across all shelves.
 
 ## Evaluate Ordinal vs. Categorical 
 (1 point) The response has values of $1, 2, 3,$ and $4$. Explain under what setting would it be desirable to take into account ordinality, and whether you think that this setting occurs here. Then estimate a suitable multinomial regression model with linear forms of the sugar, fat, and sodium variables. Perform LRTs to examine the importance of each explanatory variable. Show that there are no significant interactions among the explanatory variables (including an interaction among all three variables).
 
-> settings that take into account ordinality are things like grades or a Likert scale. In this case, because the shelves do not need to be in order or a series they can be considered nomial.
+> It's desirable to take ordinality into account when there's a meaningful and clear progression from least to greatest, such as grades or a Likert scale. In this case, because the shelves do not need to be in order or a series they can be considered nomial.
 
 ```{r multinomial logit regressions, results=F}
 model_cereal_shelves_linear <- multinom(Shelf ~ sugar + fat + sodium, data = cereal)
@@ -410,7 +414,6 @@ model_cereal_shelves_quadratic <- multinom(
     sugar:fat + sugar:sodium + fat:sodium + sugar:fat:sodium,
     data = cereal
 )
-summary(model_cereal_shelves_quadratic)
 ```
 
 ```{r likelihood ratio tests: main effects}
@@ -423,17 +426,19 @@ lrt_cereal_quadratic_effects <- round(Anova(model_cereal_shelves_quadratic), 4)
 lrt_cereal_quadratic_effects
 ```
 
-> looking at the p-values for the main effect model $sugar = `r lrt_cereal_main_effects[1,3]`$ and $sodium = `r lrt_cereal_main_effects[3,3]`$ making them very statistically significant. $fat = `r lrt_cereal_main_effects[2,3]`$ making it $> 0.1$ which means it is not statistically significant.
+> The p-values for the main effect model $sugar = `r lrt_cereal_main_effects[1,3]`$ and $sodium = `r lrt_cereal_main_effects[3,3]`$ are very statistically significant. $fat = `r lrt_cereal_main_effects[2,3]`$ making it $> 0.1$ which means it is not statistically significant.
 >
-> Looking at the the p-values for the quadratic effect model $sugar = `r lrt_cereal_quadratic_effects[1,3]`$ and $sodium = `r lrt_cereal_quadratic_effects[3,3]`$ making them both still very statistically significant. $fat = `r lrt_cereal_quadratic_effects[2,3]`$ is still $> 0.1$ making it not statistically significant. for the interactions we have $sugar:fat = `r lrt_cereal_quadratic_effects[4,3]`$, $sugar:sodium = `r lrt_cereal_quadratic_effects[5,3]`$, $fat:sodium = `r lrt_cereal_quadratic_effects[6,3]`$, and $sugar:fat:sodium = `r lrt_cereal_quadratic_effects[7,3]`$ this means that all the interactions have are $> 0.1$ making them all not statistically significant which means we can omit them from the model.
+> The p-values for the quadratic effect model $sugar = `r lrt_cereal_quadratic_effects[1,3]`$ and $sodium = `r lrt_cereal_quadratic_effects[3,3]`$ are both still very statistically significant. $fat = `r lrt_cereal_quadratic_effects[2,3]`$ is still $> 0.1$ making it not statistically significant. For the interactions, we have $sugar:fat = `r lrt_cereal_quadratic_effects[4,3]`$, $sugar:sodium = `r lrt_cereal_quadratic_effects[5,3]`$, $fat:sodium = `r lrt_cereal_quadratic_effects[6,3]`$, and $sugar:fat:sodium = `r lrt_cereal_quadratic_effects[7,3]`$. Since all the interactions are $> 0.1$, they are all not statistically significant and we can omit them from the model.
 
 ## Where do you think Apple Jacks will be placed? 
 (1 point) Kellogg's Apple Jacks (http://www.applejacks.com) is a cereal marketed toward children. For a serving size of $28$ grams, its sugar content is $12$ grams, fat content is $0.5$ grams, and sodium content is $130$ milligrams. Estimate the shelf probabilities for Apple Jacks.
 
 ```{r predictions for apple jacks}
 Rescale2 <- function(value, col) {
-    minn <- ifelse(value < min(cereal[col] / cereal$size_g), value, min(cereal[col] / cereal$size_g))
-    maxx <- ifelse(value > max(cereal[col] / cereal$size_g), value, max(cereal[col] / cereal$size_g))
+    minn <- ifelse(value < min(cereal[col] / cereal$size_g), value, 
+                   min(cereal[col] / cereal$size_g))
+    maxx <- ifelse(value > max(cereal[col] / cereal$size_g), value, 
+                   max(cereal[col] / cereal$size_g))
     return((value - minn) / (maxx - minn))
 }
 apple_jacks <- data.frame(
@@ -484,20 +489,20 @@ legend("topleft", legend = c("Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"),
        col = c("blue", "red", "green", "purple"), lwd = 2)
 ```
 
-> The plot is telling me that shelf 2 has a very high probability with high sugar and the rest of the shelve has very low to no probability with high sugar. shelf 3 and 4 have high probabilities when the sugar is low or none. All the shelves have roughly almost the same probability when the sugar is around 0.6 and 0.7.
+> The plot indicates that shelf 2 has a very high probability with high sugar and the rest of the shelves have very low to no probability as sugar increases. In fact, shelves 3 and 4 have the highest probabilities when the sugar is low or none. Shelves 1, 3, and 4 have roughly the same probability when sugar is around 0.7.
 
 ## Odds ratios 
 (1 point) Estimate odds ratios and calculate corresponding confidence intervals for each explanatory variable. Relate your interpretations back to the plots constructed for this exercise. 
 
 ```{r produce odds ratios}
-odds_ratios <- round(exp(coef(model_cereal_shelves_linear)[,2:4]),2)
+odds_ratios <- round(exp(coef(model_cereal_shelves_linear)[,2:4])/10,2)
 odds_ratios
 
-cis_odd_ratios <- exp(confint(model_cereal_shelves_linear, level = 0.95))
+cis_odd_ratios <- exp(confint(model_cereal_shelves_linear, level = 0.95))/10
 cis_odd_ratios[2:4,,]
 ```
 
-> The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,1]` times for `sugar` holding the other variables constant. Also, The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,2]` times for `fat` holding the other varaibles constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[2,2]` times for `fat` holding the other variables constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[3,2]` times for `fat` holding the other variables constant. the odds for `sodium` have a very low effect on all shelves against the first shelf holding other variabels constant.
+> The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,1]` times for a 10% increase in `sugar` holding the other variables constant. Also, The estimated odds of Shelf 2 versus 1 change by `r odds_ratios[1,2]` times for a 10% increase in `fat` holding the other varaibles constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[2,2]` times for a 10% increase in `fat` holding the other variables constant. The estimated odds of Shelf 3 versus 1 change by `r odds_ratios[3,2]` times for a 10% increase in `fat` holding the other variables constant. The odds for `sodium` have a very low effect on all shelves against the first shelf holding other variabels constant.
 
 
 # Alcohol, self-esteem and negative relationship interactions (5 points)
