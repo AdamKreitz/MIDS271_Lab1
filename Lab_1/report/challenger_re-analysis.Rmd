@@ -70,7 +70,7 @@ Our EDA was mainly concentrated on looking at how the two explanatory variables 
 The first chart that we created was a scatterplot of Temperature vs. O.Rings, seen below. For the most part, O-ring failures happen at lower temperatures. There's one instance of an O-ring failure at 70 degrees and 2 O-ring failures at 75 degrees. Otherwise, we see every instance below 65 degrees resulting in at least 1 O-ring failure.
 
 
-```{r scatter plots of Temp vs O.ring and Pressure vs O.ring, echo=F, fig.align="center"}
+```{r scatter plots of Temp vs O.ring and Pressure vs O.ring, echo=F, fig.align="center", fig.height=3}
 plot(challenger$Temp, challenger$O.ring,
     main = "O-ring failures by Temperature",
     xlab = "Temperature", ylab = "O.ring",
@@ -80,7 +80,7 @@ plot(challenger$Temp, challenger$O.ring,
 
 The next graph we created was a scatterplot of Pressure vs. O.Ring. This scatterplot does not make pressure seem to be a relevant factor, as we see both low pressure and high pressure have instances of O-ring failure, though it is not definitive because there are many points of overlap. It's interesting to see that at a Pressure of 100, there are no instances of O-ring failure, so there is the possibility that only extremes on either side could influence failure, but more inspection is needed.
 
-```{r scatter plot of Pressure vs O.ring, echo=F, fig.align="center"}
+```{r scatter plot of Pressure vs O.ring, echo=F, fig.align="center", fig.height=3}
 plot(challenger$Pressure, challenger$O.ring,
     main = "O-ring failures by Pressure",
     xlab = "Pressure", ylab = "O.ring",
@@ -93,7 +93,7 @@ plot(challenger$Pressure, challenger$O.ring,
 
 This next scatter plot combines all three variables of interest. Again, we can see more O-ring failures clustered at lower temperatures. Failures seem to be more common at higher pressures as well, although this could be a trick of the eye as there are many more data points at higher pressure than lower pressure. Note some space is added to show points that overlap. 
 
-```{r, echo=F, fig.align="center"}
+```{r, echo=F, fig.align="center", fig.height=3}
 challenger %>% ggplot(aes(x = Temp, y = Pressure)) +
   geom_point(aes(color = factor(O.ring)),
              position = position_jitter(width = 0.2, height = 0.2)) +
@@ -105,7 +105,7 @@ challenger %>% ggplot(aes(x = Temp, y = Pressure)) +
 
 In order to more closely visualize the difference in Temperature by class, we created comparative boxplots that were sorted into the number of O-ring failures for Temperature, which is below:
 
-```{r boxplot of Temp, echo=F, fig.align="center"}
+```{r boxplot of Temp, echo=F, fig.align="center", fig.height=3}
 boxplot(challenger$Temp ~ challenger$O.ring, xlab = "Temperature", ylab = "O.ring",
         main = "Box plot of Temperature by O.ring", horizontal = TRUE)
 ```
@@ -114,7 +114,7 @@ We can see a very clear upward shift in Temperature for both IQR and Median for 
 
 Finally, we wanted to know about the distribution of our data for both Temperature and Pressure so that we know which ranges of variables will have the most robust analysis, so we generated the two histograms below:
 
-```{r heatmap of correlation matrix, echo=F, fig.align="center"}
+```{r heatmap of correlation matrix, echo=F, fig.align="center", fig.height=3}
 hist(challenger$Temp, xlab = "Temperature", main = "Histogram of Temperature")
 hist(challenger$Pressure, xlab = "Pressure", main = "Histogram of Pressure")
 ```
@@ -175,7 +175,7 @@ The high p-value in the results of the `anova()` test suggest that the quadratic
 ### Plots
 The first graph below shows the probability of O-ring failure across a range of temperatures. The blue bands represent the 95% Wald confidence interval. It's evident that the predicted probability of failure decreases significantly as temperature goes up. The confidence bands are also much wider at lower temperatures. This could be because there are less observations in the data at lower temperatures. The lowest recorded temperature is actually only 53 degrees, so everything below that is a generalization of the model from the rest of the data.
 
-```{r confidence interval plot1, echo=F, fig.align="center"}
+```{r confidence interval plot1, echo=F, fig.align="center", fig.height=3}
 # Return the coefficients of the model
 beta_hat <- mod_temp$coefficients
 
@@ -208,7 +208,7 @@ ggplot() +
 
 The next graph shows the expected number of O-ring failures across temperatures. Again we see the downward trend as temperature increases. It's worth noting that almost 5 O-ring failures are expected at 31 degrees. We'll take a closer look in the next section.
 
-```{r confidence interval plot 2, echo=F, fig.align="center"}
+```{r confidence interval plot 2, echo=F, fig.align="center", fig.height=3}
 pred_probs_temp <- predict(mod_temp, newdata = new_data, type = "response")
 
 ggplot() +
@@ -235,7 +235,7 @@ The predicted probability of an O-ring failure at 31 degrees, the temperature du
 
 For bootstrapping, we elected to do 1,000 samples, as we felt that was significantly large enough to garner the result we were looking for. Also, to keep things consistent, we made sure to sample with replacement to get accurate results. The plot for the confidence interval is below:
 
-```{r bootstrap confidence interval plot, echo=F, fig.align="center"}
+```{r bootstrap confidence interval plot, echo=F, fig.align="center", fig.height=3}
 # Set the number of bootstrap samples
 B <- 1000
 
@@ -299,7 +299,7 @@ Interpreting these results tells us that our predicted probability of an individ
 
 We generated a linear model based on Temperature and then proceeded to run tests to check the linearity of the data. The results were clear from examining the pattern of residuals to see if they were randomly distributed. To do so, we generated a QQ plot (below) in order to check for homoscedasticity. 
 
-```{r qq plot, echo=F, fig.align="center"}
+```{r qq plot, echo=F, fig.align="center", fig.height=3}
 # Should we show the code for the linear_model?
 
 # Define a linear model
